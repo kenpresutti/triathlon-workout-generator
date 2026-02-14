@@ -10,6 +10,7 @@ export default function WorkoutGenerator() {
   const [error, setError] = useState(null);
   const [groupIntervals, setGroupIntervals] = useState(false);
   const [includeLastRecovery, setIncludeLastRecovery] = useState(false);
+  const [hoveredSegment, setHoveredSegment] = useState(null);
 
   // Zone calculations based on FTP
   const calculateZones = (ftpValue) => {
@@ -465,19 +466,37 @@ ${mrcLines}
             {/* Visual Workout Chart */}
             <div className="mb-8 p-6 bg-gray-50 rounded-lg">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">Workout Structure</h3>
-              <div className="relative h-48 bg-white rounded border border-gray-200 overflow-hidden">
-                {/* Y-axis labels */}
-                <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs text-gray-500 py-2">
-                  <div>Z6</div>
-                  <div>Z5</div>
-                  <div>Z4</div>
-                  <div>Z3</div>
-                  <div>Z2</div>
-                  <div>Z1</div>
-                </div>
+              
+              <div className="relative">
+                {/* Hover tooltip display - positioned absolutely */}
+                {hoveredSegment && (
+                  <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-white border-2 border-indigo-400 rounded-lg shadow-lg">
+                    <div className="font-bold text-gray-800 mb-1">{hoveredSegment.description}</div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Duration:</span> {formatDurationShort(hoveredSegment.duration)} • 
+                      <span className="font-semibold ml-2">Power:</span> {hoveredSegment.power}W • 
+                      <span className="font-semibold ml-2">Zone:</span> {hoveredSegment.zone} • 
+                      {((hoveredSegment.power / ftp) * 100).toFixed(0)}% CP
+                    </div>
+                  </div>
+                )}
                 
-                {/* Workout bars */}
-                <div className="absolute left-12 right-0 top-0 bottom-0 flex items-end">
+                {/* Add spacing for tooltip */}
+                <div className="h-20 mb-2"></div>
+                
+                <div className="relative h-48 bg-white rounded border border-gray-200 overflow-hidden">
+                  {/* Y-axis labels */}
+                  <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs text-gray-500 py-2">
+                    <div>Z6</div>
+                    <div>Z5</div>
+                    <div>Z4</div>
+                    <div>Z3</div>
+                    <div>Z2</div>
+                    <div>Z1</div>
+                  </div>
+                  
+                  {/* Workout bars */}
+                  <div className="absolute left-12 right-0 top-0 bottom-0 flex items-end">
                   {(() => {
                     // Build chart segments
                     const chartSegments = [];
@@ -534,27 +553,26 @@ ${mrcLines}
                     return (
                       <div
                         key={idx}
-                        className={`${colors[zoneNum]} border-r border-gray-300 hover:opacity-80 transition-opacity cursor-pointer relative group`}
+                        className={`${colors[zoneNum]} border-r border-gray-300 transition-all cursor-pointer ${
+                          hoveredSegment === segment ? 'opacity-100 ring-2 ring-inset ring-indigo-500' : 'opacity-90 hover:opacity-100'
+                        }`}
                         style={{
                           width: `${widthPercent}%`,
                           height: `${heightPercent}%`
                         }}
-                        title={`${segment.description} - ${formatDurationShort(segment.duration)}`}
-                      >
-                        {/* Tooltip on hover */}
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10">
-                          {segment.zone}: {formatDurationShort(segment.duration)}
-                        </div>
-                      </div>
+                        onMouseEnter={() => setHoveredSegment(segment)}
+                        onMouseLeave={() => setHoveredSegment(null)}
+                      />
                     );
                   })}
+                  </div>
                 </div>
-              </div>
-              
-              {/* Time scale below */}
-              <div className="mt-2 ml-12 flex justify-between text-xs text-gray-500">
-                <span>0:00</span>
-                <span>{formatDuration(getTotalDuration())}</span>
+                
+                {/* Time scale below */}
+                <div className="mt-2 ml-12 flex justify-between text-xs text-gray-500">
+                  <span>0:00</span>
+                  <span>{formatDuration(getTotalDuration())}</span>
+                </div>
               </div>
             </div>
 

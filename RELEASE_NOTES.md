@@ -1,3 +1,22 @@
+## Version 1.0.1 - February 14, 2026
+
+### 🎨 Visual Improvements
+
+- **Updated Zone Colors**: Chart and zone badges now use standard training platform colors
+  - Z1: Light cyan (recovery)
+  - Z2: Bright cyan (endurance)
+  - Z3: Blue (tempo)
+  - Z4: Purple (threshold)
+  - Z5: Pink (VO2 max)
+  - Z6: Red (anaerobic)
+- **Enhanced Duration Display**: Total workout duration now displays in HH:MM:SS format for better readability
+- **Matching Zone Badges**: Zone pill indicators now match chart colors for consistent visual identity
+
+### 🐛 Bug Fixes
+
+- Improved visual consistency across the interface
+
+---
 # Release Notes
 
 ## Version 1.0.0 - February 14, 2026

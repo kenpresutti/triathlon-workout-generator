@@ -207,88 +207,90 @@ ${workout.segments.map((seg) => {
     while (i < segments.length) {
       const cur = segments[i];
       if (cur.type === 'interval') {
-        // Try to detect a repeating multi-zone pattern (compound intervals)
-        // Look ahead to find pattern length (1, 2, or 3 segments per rep)
-        let bestPattern = null;
-
-        for (let patLen = 1; patLen <= 3; patLen++) {
-          // Check if we have enough segments for at least 2 reps of this pattern
+        // STRATEGY 1: Try compound multi-zone pattern (no Z1 recovery between parts)
+        // e.g., [Z4, Z5, Z4, Z5, Z4, Z5] = 3x (Z4 + Z5)
+        let bestCompound = null;
+        for (let patLen = 2; patLen <= 3; patLen++) {
           if (i + patLen * 2 > segments.length) continue;
-
-          // Extract the candidate pattern
           const pattern = segments.slice(i, i + patLen);
-          // All segments in pattern must be intervals (not warmup/cooldown/recovery between sets)
           if (!pattern.every(s => s.type === 'interval')) continue;
+          // For compound: all parts must be different zones (otherwise it's just same-zone repeats)
+          const patZones = pattern.map(s => s.zone);
+          if (new Set(patZones).size < 2) continue;
 
-          // Count how many times this pattern repeats
-          let reps = 1;
-          let j = i + patLen;
+          let reps = 1, j = i + patLen;
           while (j + patLen <= segments.length) {
             const next = segments.slice(j, j + patLen);
-            // Check if next chunk matches the pattern (same zones, similar durations)
             let match = true;
             for (let k = 0; k < patLen; k++) {
               if (next[k].type !== 'interval' || next[k].zone !== pattern[k].zone || Math.abs(next[k].duration - pattern[k].duration) > 30) {
                 match = false; break;
               }
             }
-            if (match) { reps++; j += patLen; }
-            else break;
+            if (match) { reps++; j += patLen; } else break;
           }
-
-          if (reps >= 2 && (!bestPattern || patLen > bestPattern.patLen)) {
-            bestPattern = { patLen, reps, endIdx: j };
+          if (reps >= 2 && (!bestCompound || patLen > bestCompound.patLen)) {
+            bestCompound = { patLen, reps, endIdx: j };
           }
         }
 
-        if (bestPattern) {
-          const { patLen, reps, endIdx } = bestPattern;
+        if (bestCompound) {
+          const { patLen, reps, endIdx } = bestCompound;
           const patternSegments = segments.slice(i, i + patLen);
           const allIndices = [];
           for (let x = i; x < endIdx; x++) allIndices.push(x);
 
-          if (patLen === 1) {
-            // Simple single-zone group (original behavior)
-            const intervals = [];
-            for (let x = i; x < endIdx; x++) intervals.push(segments[x]);
-            const minP = Math.min(...intervals.map(x => x.power));
-            const maxP = Math.max(...intervals.map(x => x.power));
-            const groupCadence = cur.cadence || null;
-            grouped.push({
-              isGroup: true, isCompound: false, reps,
-              active: { ...cur, powerMin: minP, powerMax: maxP, cadence: groupCadence, description: cur.description.replace(/Interval \d+ of \d+ - /, '').replace(/Set \d+ - /, '').replace(/Rep \d+ - /, '') },
-              recovery: null,
-              originalIndices: allIndices,
-              totalDuration: intervals.reduce((s, x) => s + x.duration, 0)
-            });
-          } else {
-            // Compound multi-zone group (e.g., Z4+Z5 repeated)
-            const compoundParts = patternSegments.map(seg => {
-              // Collect all instances of this position across reps
-              const instances = [];
-              for (let r = 0; r < reps; r++) {
-                const idx = i + r * patLen + patternSegments.indexOf(seg);
-                instances.push(segments[idx]);
-              }
-              const minP = Math.min(...instances.map(x => x.power));
-              const maxP = Math.max(...instances.map(x => x.power));
-              return {
-                zone: seg.zone, duration: seg.duration,
-                powerMin: minP, powerMax: maxP,
-                cadence: seg.cadence || null,
-                description: seg.description.replace(/Interval \d+ of \d+ - /, '').replace(/Set \d+ - /, '').replace(/Rep \d+ - /, '')
-              };
-            });
+          const compoundParts = patternSegments.map((seg, pIdx) => {
+            const instances = [];
+            for (let r = 0; r < reps; r++) instances.push(segments[i + r * patLen + pIdx]);
+            const minP = Math.min(...instances.map(x => x.power));
+            const maxP = Math.max(...instances.map(x => x.power));
+            return {
+              zone: seg.zone, duration: seg.duration,
+              powerMin: minP, powerMax: maxP,
+              cadence: seg.cadence || null,
+              description: seg.description.replace(/Interval \d+ of \d+ - /, '').replace(/Set \d+ - /, '').replace(/Rep \d+ - /, '')
+            };
+          });
 
-            grouped.push({
-              isGroup: true, isCompound: true, reps,
-              compoundParts,
-              recovery: null,
-              originalIndices: allIndices,
-              totalDuration: allIndices.reduce((s, idx) => s + segments[idx].duration, 0)
-            });
-          }
+          grouped.push({
+            isGroup: true, isCompound: true, reps, compoundParts,
+            recovery: null, originalIndices: allIndices,
+            totalDuration: allIndices.reduce((s, idx) => s + segments[idx].duration, 0)
+          });
           i = endIdx; continue;
+        }
+
+        // STRATEGY 2: Simple single-zone group with Z1 recovery between intervals
+        // e.g., [Z4, Z1, Z4, Z1, Z4] = 3x Z4 with Z1 recovery
+        const intervals = [cur], iIdx = [i], recs = [], rIdx = [];
+        let j = i + 1;
+        if (j < segments.length && segments[j].zone === 'Z1') {
+          recs.push(segments[j]); rIdx.push(j); j++;
+        }
+        while (j < segments.length) {
+          const p = segments[j];
+          if (p.type === 'interval' && p.zone === cur.zone && Math.abs(p.duration - cur.duration) <= 30) {
+            intervals.push(p); iIdx.push(j); j++;
+            if (j < segments.length && segments[j].zone === 'Z1' && segments[j].duration <= cur.duration * 2) {
+              recs.push(segments[j]); rIdx.push(j); j++;
+            }
+          } else break;
+        }
+        if (intervals.length >= 2) {
+          const minP = Math.min(...intervals.map(x => x.power));
+          const maxP = Math.max(...intervals.map(x => x.power));
+          const rt = recs.length > 0 ? recs[0] : null;
+          const avgRP = recs.length > 0 ? Math.round(recs.reduce((s, r) => s + r.power, 0) / recs.length) : 0;
+          const groupCadence = cur.cadence || null;
+          grouped.push({
+            isGroup: true, isCompound: false, reps: intervals.length,
+            active: { ...cur, powerMin: minP, powerMax: maxP, cadence: groupCadence, description: cur.description.replace(/Interval \d+ of \d+ - /, '').replace(/Set \d+ - /, '').replace(/Rep \d+ - /, '') },
+            recovery: rt ? { ...rt, power: avgRP } : null,
+            originalIndices: [...iIdx, ...rIdx],
+            totalDuration: intervals.reduce((s, x) => s + x.duration, 0) + recs.reduce((s, x) => s + x.duration, 0)
+          });
+          i = j; continue;
         }
       }
       grouped.push({ ...cur, isGroup: false, originalIndex: i }); i++;

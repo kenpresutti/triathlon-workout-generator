@@ -50,9 +50,11 @@ IMPORTANT RULES:
 3. Rest periods should always be at Z1 (active recovery).
 4. Convert "mins" or "min" to seconds (multiply by 60).
 5. Convert "sec" to seconds as-is.
-6. Ignore cadence instructions like "at 70rpm" or "at 60rpm" - just focus on power and duration.
+6. CADENCE: If cadence is specified (e.g., "at 70rpm", "100rpm", "at 65rpm"), capture it as a "cadence" field (integer, RPM). If no cadence is mentioned for a segment, set cadence to null.
 7. For intervals like "3 x 7 min @ Z4", create 3 segments of 7 minutes each at Z4, with rest periods between them if specified.
 8. CRITICAL: Recovery periods go BETWEEN intervals only, NEVER after the last interval in a set. For "3 x 7 min @ Z4 (2 min)", create: Z4 interval, Z1 recovery, Z4 interval, Z1 recovery, Z4 interval, STOP. Do not add recovery after the final interval.
+9. When a segment is described as "easy", "aerobic", or "warm up"/"cool down" without a specific zone, default to Z2 (Endurance) unless explicitly specified as Z1.
+10. When intensity is specified as a percentage of CP/FTP (e.g., "90% cp", "85% FTP", "90 to 95% cp"), calculate the corresponding wattage from the FTP value. For ranges like "90 to 95%", use the midpoint for the power value and note the range in the description.
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks, no explanation):
 {
@@ -64,12 +66,13 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
       "duration": 600,
       "power": 120,
       "zone": "Z1",
+      "cadence": null,
       "description": "Warm up"
     }
   ]
 }
 
-Make sure every segment has type, duration (in seconds), power (in watts), zone, and description fields.`;
+Make sure every segment has type, duration (in seconds), power (in watts), zone, cadence (integer or null), and description fields.`;
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -114,7 +117,8 @@ Make sure every segment has type, duration (in seconds), power (in watts), zone,
   <workout>
 ${workout.segments.map((seg) => {
   const pp = (seg.power / ftp).toFixed(2);
-  return `    <${seg.type} Duration="${seg.duration}" PowerLow="${pp}" PowerHigh="${pp}">
+  const cadAttr = seg.cadence ? ` Cadence="${seg.cadence}"` : '';
+  return `    <${seg.type} Duration="${seg.duration}" PowerLow="${pp}" PowerHigh="${pp}"${cadAttr}>
       <textevent timeoffset="0" message="${seg.description}"/>
     </${seg.type}>`;
 }).join('\n')}
@@ -134,7 +138,8 @@ ${workout.segments.map((seg) => {
     let ts = 0;
     const lines = workout.segments.map(seg => {
       const s = ts; ts += seg.duration;
-      return `${s}\t${seg.power}\n${ts}\t${seg.power}`;
+      const cadNote = seg.cadence ? `  ; ${seg.cadence}rpm` : '';
+      return `${s}\t${seg.power}${cadNote}\n${ts}\t${seg.power}`;
     }).join('\n');
     const erg = `[COURSE HEADER]\nVERSION = 2\nUNITS = ENGLISH\nDESCRIPTION = ${workout.name}\nFILE NAME = ${workout.name}\nMINUTES WATTS\n[END COURSE HEADER]\n[COURSE DATA]\n${lines}\n[END COURSE DATA]`;
     const blob = new Blob([erg], { type: 'text/plain' });
@@ -154,7 +159,8 @@ ${workout.segments.map((seg) => {
       const dm = (seg.duration / 60).toFixed(2);
       tm = parseFloat((tm + parseFloat(dm)).toFixed(2));
       const pp = ((seg.power / ftp) * 100).toFixed(0);
-      return `${s.toFixed(2)}\t${pp}\n${tm.toFixed(2)}\t${pp}`;
+      const cadNote = seg.cadence ? `  ; ${seg.cadence}rpm` : '';
+      return `${s.toFixed(2)}\t${pp}${cadNote}\n${tm.toFixed(2)}\t${pp}`;
     }).join('\n');
     const mrc = `[COURSE HEADER]\nVERSION = 2\nUNITS = ENGLISH\nDESCRIPTION = ${workout.name}\nFILE NAME = ${workout.name}\nMINUTES PERCENT\n[END COURSE HEADER]\n[COURSE DATA]\n${lines}\n[END COURSE DATA]`;
     const blob = new Blob([mrc], { type: 'text/plain' });
@@ -217,9 +223,11 @@ ${workout.segments.map((seg) => {
           const maxP = Math.max(...intervals.map(x => x.power));
           const rt = recs.length > 0 ? recs[0] : null;
           const avgRP = recs.length > 0 ? Math.round(recs.reduce((s, r) => s + r.power, 0) / recs.length) : 0;
+          // Get cadence from first interval (they should all be the same in a group)
+          const groupCadence = cur.cadence || null;
           grouped.push({
             isGroup: true, reps: intervals.length,
-            active: { ...cur, powerMin: minP, powerMax: maxP, description: cur.description.replace(/Interval \d+ of \d+ - /, '') },
+            active: { ...cur, powerMin: minP, powerMax: maxP, cadence: groupCadence, description: cur.description.replace(/Interval \d+ of \d+ - /, '') },
             recovery: rt ? { ...rt, power: avgRP } : null,
             originalIndices: [...iIdx, ...rIdx],
             totalDuration: intervals.reduce((s, x) => s + x.duration, 0) + recs.reduce((s, x) => s + x.duration, 0)
@@ -251,6 +259,15 @@ ${workout.segments.map((seg) => {
     segmentCard: 'bg-gray-50', segmentRecovery: 'bg-white border-gray-300',
     groupBorder: 'border-gray-200', error: 'bg-red-50 border-red-200 text-red-700',
     checkbox: 'text-indigo-600',
+  };
+
+  const cadenceBadge = (cadence) => {
+    if (!cadence) return null;
+    return (
+      <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${darkMode ? 'bg-amber-900/50 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
+        {cadence} rpm
+      </span>
+    );
   };
 
   return (
@@ -293,7 +310,7 @@ ${workout.segments.map((seg) => {
 
           <div className="mb-6">
             <label className={`block text-sm font-medium ${t.textMuted} mb-2`}>Describe Your Workout</label>
-            <textarea value={workoutDescription} onChange={(e) => setWorkoutDescription(e.target.value)} placeholder="Example: 10 minute warm up with 2 minutes in zone 1, 5min in zone 2, and 3 min in zone 3. Then do 5x3 intervals at zone 4, each interval slightly higher than the next, followed by a 5min cool down." className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-32 ${t.input} transition-colors duration-300`} />
+            <textarea value={workoutDescription} onChange={(e) => setWorkoutDescription(e.target.value)} placeholder="Example: 10 minute warm up, 5x3min zone 4 at 90rpm with 2min rest, 5min cool down" className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-32 ${t.input} transition-colors duration-300`} />
           </div>
 
           {error && (
@@ -331,6 +348,7 @@ ${workout.segments.map((seg) => {
                       <span className="font-semibold ml-2">Power:</span> {hoveredSegment.power}W • 
                       <span className="font-semibold ml-2">Zone:</span> {hoveredSegment.zone} • 
                       {((hoveredSegment.power / ftp) * 100).toFixed(0)}% CP
+                      {hoveredSegment.cadence && <><span className="font-semibold ml-2">Cadence:</span> {hoveredSegment.cadence} rpm</>}
                     </div>
                   </div>
                 )}
@@ -405,7 +423,10 @@ ${workout.segments.map((seg) => {
                             <div className={`text-xs ${t.textSub}`}>Active</div>
                           </div>
                           <div className="flex-grow">
-                            <div className={`font-semibold ${t.text}`}>{item.active.description}</div>
+                            <div className={`font-semibold ${t.text}`}>
+                              {item.active.description}
+                              {cadenceBadge(item.active.cadence)}
+                            </div>
                             <div className={`text-sm ${t.textMuted}`}>{pr} • {item.active.zone} • {pct}</div>
                           </div>
                           <div className="flex-shrink-0">
@@ -450,7 +471,10 @@ ${workout.segments.map((seg) => {
                           <div className={`text-xs ${t.textSub} capitalize`}>{st}</div>
                         </div>
                         <div className="flex-grow">
-                          <div className={`font-semibold ${t.text}`}>{seg.description}</div>
+                          <div className={`font-semibold ${t.text}`}>
+                            {seg.description}
+                            {cadenceBadge(seg.cadence)}
+                          </div>
                           <div className={`text-sm ${t.textMuted}`}>{seg.power}W • {seg.zone} • {((seg.power / ftp) * 100).toFixed(0)}% CP</div>
                         </div>
                         <div className="flex-shrink-0">

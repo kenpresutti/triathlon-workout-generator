@@ -1,5 +1,430 @@
+
+what's the last chat we were working on with my workout builder app? I think we were getting ready to move to developing the next piece in cursor but i don't remember where we were
+
+9:07 PM
+
+Traced project history and identified next migration milestone
+Traced project history and identified next migration milestone
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Got it, Ken. Here's where you left off:
+
+Your most recent workout builder chat was on February 16th: https://claude.ai/chat/4081e5ec-1b8f-47aa-b3de-8eddc69d8bbc
+
+In that session you accomplished a lot:
+
+Fixed a git mishap where you accidentally committed with the wrong branch/message, and we sorted out which branch the changes actually landed on
+Tagged v1.0.2 on main (the hotfix that fixed the trailing recovery bug after the last interval in a set)
+Built the workout library feature (v1.1.0) — save, load, delete workouts with persistent storage, collapsible library UI, the whole thing
+The next step you were heading toward was moving the app from a Claude artifact into Cursor as a proper React project. The plan we'd laid out was:
+
+Scaffold a new Vite + React project in Cursor (npm create vite@latest workout-builder)
+Split the monolithic artifact into a proper file structure (components like WorkoutForm, WorkoutChart, WorkoutLibrary, IntervalList, plus utility files for zone calculations and export functions)
+Get it running locally at localhost:5173
+Make your first proper commit of the full app
+Then continue feature development from Cursor going forward
+So you're essentially at the "migration to Cursor" milestone. Want to pick that up now?
+
+yes, but i may be a little lost as i warm up again. lets start
+
+9:09 PM
+
+Charted patient onboarding strategy for React migration project
+Charted patient onboarding strategy for React migration project
+
+
+
+
+No worries, let's ease into it. Before we start building anything, let's get oriented on where things stand right now.
+
+Can you open Cursor and pull up a terminal (Ctrl+` or Cmd+ ` on Mac), then run these three commands and share what you see:
+
+bash
+# 1. Where are we?
+cd ~/src && ls
+
+# 2. What's in the workout builder repo?
+cd workout-generator && git status
+
+# 3. What branch and last commit?
+git branch && git log -1 --oneline
+This will tell us whether your repo is clean, what branch you're on, and confirm we're starting from the right place. Once I see the output, I'll walk you through the next steps.
+
+If the folder name is different than workout-generator, just let me know what it's called when you ls — we'll find it.
+
+heres what i have kenpresutti@Mac ~ % cd ~/src && ls
+pf-native
+kenpresutti@Mac src % cd workout-generator && git status
+cd: no such file or directory: workout-generator
+
+9:11 PM
+
+Investigated missing workout-generator repository location and cloning status
+Investigated missing workout-generator repository location and cloning status
+
+
+
+That makes sense — the workout builder code was living as a Claude artifact that you were copying into a file and pushing to GitHub, but it sounds like you might not have had a full project folder set up locally, or it was somewhere else.
+
+Let's figure out what exists. Can you run:
+
+bash
+# Check if it's anywhere else on your machine
+find ~/src -name "*.zwo" -o -name "workout*" 2>/dev/null
+
+# And check your GitHub repos
+ls ~/src/
+Also, do you remember your GitHub repo name for the workout builder? If you hop into your personal GitHub account in a browser, we can check if the repo is there and just clone it down fresh. That might be the cleanest starting point anyway, since we're about to restructure everything into a proper React project.
+
+heres what i got /Users/kenpresutti/src/pf-native/packages/trainxexecute/src/workouts
+/Users/kenpresutti/src/pf-native/apps/rundot-expo/app/workout-complete.tsx
+/Users/kenpresutti/src/pf-native/apps/rundot-expo/__tests__/services/api/workouts
+/Users/kenpresutti/src/pf-native/apps/rundot-expo/modules/workouts-sync
+/Users/kenpresutti/src/pf-native/apps/rundot-expo/modules/workouts-scheduler
+/Users/kenpresutti/src/pf-native/apps/rundot-expo/services/api/workouts
+kenpresutti@Mac ~ %
+
+9:12 PM
+
+Identified files belonged to existing repo, suggested checking GitHub for workout builder project
+Identified files belonged to existing repo, suggested checking GitHub for workout builder project
+
+
+Yeah, those are all from your PF-Native (TriDot) repo, not your personal workout builder. So it looks like you don't have a dedicated project folder for it locally yet — which is actually perfect, because that's exactly what we're about to create.
+
+The workout builder code has been living as a Claude artifact. Let's check if you pushed it to GitHub so we know what we're working with:
+
+bash
+# Check which GitHub account you're using for personal stuff
+gh repo list --limit 10
+If gh isn't installed, no worries — just open your personal GitHub account in a browser and look for a workout-related repo. It might be called something like workout-generator or workout-builder.
+
+Once we confirm what's on GitHub, we'll either clone it down or start fresh with the Vite + React scaffold. Either way, we'll end up in the right place.
+
+i think i do though
+
+9:12 PM
+
+Encouraged verification and collaborative exploration
+Encouraged verification and collaborative exploration
+
+Go check! Pull up your personal GitHub in a browser and see what you find. I'll be here when you get back with the repo name.
+
+its __triathlon-workout-generator__
+
+9:13 PM
+
+Excavated repository contents for triathlon application
+Excavated repository contents for triathlon application
+
+Let's pull it down:
+
+bash
+cd ~/src
+git clone git@github.com:YOUR_USERNAME/triathlon-workout-generator.git
+cd triathlon-workout-generator
+git status
+git log --oneline -5
+ls
+Replace YOUR_USERNAME with your personal GitHub username (not the PredictiveFitness org one). Let me know what you see and we'll take it from there!
+
+kenpresutti@Mac src % cd ~/src
+git clone git@github.com:YOUR_USERNAME/triathlon-workout-generator.git
+cd triathlon-workout-generator
+git status
+git log --oneline -5
+ls
+Cloning into 'triathlon-workout-generator'...
+ERROR: Repository not found.
+fatal: Could not read from remote repository.
+Please make sure you have the correct access rights
+and the repository exists.
+cd: no such file or directory: triathlon-workout-generator
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+pf-native
+kenpresutti@Mac src %
+
+Show more
+9:13 PM
+
+Identified placeholder username requiring clarification from user
+Identified placeholder username requiring clarification from user
+
+Ha — you need to replace YOUR_USERNAME with your actual personal GitHub username! What's your personal GitHub username? Then I'll give you the exact command.
+
+Your branch is up to date with 'origin/main'.
+nothing to commit, working tree clean
+2568d7d (HEAD -> main, tag: v1.0.2, origin/main, origin/feature/KP-8-workout-library, origin/HEAD) KP-8 Fix trailing recovery bug in interval sets
+97ce87f Merge pull request #1 from kenpresutti/KP-3-add-hover-tooltips-to-workout-visualization
+10b1601 KP-3: Add hover tooltips to workout visualization
+abbbc71 KP-2: Testing integration after granting repo access
+01114b9 KP-2: Testing Jira integration with GitHub
+index.html              RELEASE_NOTES.md
+kenpresutti@Mac triathlon-workout-generator %
+
+9:14 PM
+
+Deliberated scaffolding strategies for React project initialization
+Deliberated scaffolding strategies for React project initialization
+
+
+
+
+There it is. You're on main at v1.0.2 with a clean working tree. Right now the whole app is just index.html — the single-file artifact version.
+
+Now let's turn this into a proper React project. Here's what we're about to do and why:
+
+We're going to scaffold a Vite + React project right here in this folder. Vite is the build tool that will let you run a local dev server, get hot-reloading (changes show up instantly in the browser), and eventually deploy properly.
+
+Let's go step by step. Run this first:
+
+bash
+# Initialize a new Vite React project in the current directory
+npm create vite@latest . -- --template react
+It might ask if you want to proceed since the directory isn't empty — say yes. Then tell me what you see.
+
+Before we do, do you think it makes sense to fix the issues that we're having with how I might be adding names to the app and the bugs that we've seen there? I'm not sure if you're able to reference that or not, or if we should rebuild it here and then work through that first.
+
+9:15 PM
+
+Identified parsing and visualization bugs, weighed fix priority against rebuild
+Identified parsing and visualization bugs, weighed fix priority against rebuild
+
+
+
+
+
+
+
+
+
+
+
+Okay, I found the bugs you're thinking of. There were two main issues from those sessions:
+
+Warm Up section parsing — when you typed everything on one line, the parser wasn't detecting the "warm up" section. It also wasn't stripping filler words like "as" or splitting main set items properly when there were no commas between them.
+Chart visualization recovery bug — the chart was showing a recovery interval after the last Z4 interval even when "Include recovery after last interval" was unchecked. The intervals list was correct, but the chart was out of sync.
+We iterated on both in the artifact, but here's the thing — your GitHub repo is at v1.0.2, which was the hotfix for the trailing recovery in the API prompt. The library feature (v1.1.0) and those parser/chart fixes were built in the Claude artifact but it's not clear they all made it into what's committed.
+
+Here's my recommendation: migrate first, fix after. Here's why:
+
+Right now your repo is just a single index.html — it's the old artifact dump approach
+Once we scaffold the proper React project and split into components, fixing those bugs will be much easier because you'll have separate files for the parser logic, the chart, the library, etc.
+Debugging in Cursor with a real dev server and console will be way more productive than going back and forth with artifacts
+So the plan would be: set up the React project structure → get the latest working artifact code into proper components → then tackle the parsing and chart bugs as your first real "fix it in Cursor" learning experience.
+
+Sound good, or would you rather squash the bugs first?
+
+Let's work on squashing the one bug that I think you have, which is related to number one. The chart visualization bug seems to have already been fixed.
+
+9:16 PM
+
+Investigated parsing bug in warm-up section logic
+Investigated parsing bug in warm-up section logic
+
+
+
+Got it — let's fix the warm up section parsing. Let me see what parser logic you currently have in your repo so I know exactly what we're working with:
+
+bash
+cat index.html | grep -A 50 "cleanWorkoutDescription\|formatDescription\|parseSection"
+That should show me the section of code that handles parsing the workout text into sections. Once I see what's there, I'll know whether we need to fix the existing logic or add it fresh.
+
+What if I just drop all the code here? We rebuild the app in Claude as a new artifact, and let me see if I can recreate it.
+
+9:17 PM
+
+Endorsed the strategy to rebuild the app fresh
+Endorsed the strategy to rebuild the app fresh
+
+
+Go for it — paste the whole thing and we'll get it running as an artifact, fix that parsing bug, and then we'll have a clean baseline to migrate into Cursor.
+
+
+I was working to create an app, but reached my limit on the other chat. should we keep working here? Feb 14 Excavated prior conversation context to resume app development work Yes, absolutely! Let me grab the context from your previous conversation so we can pick up right where you left off
+
+pasted
+
+9:18 PM
+
+Reconstructing workout generator app, examining parsing bug
+Reconstructing workout generator app, examining parsing bug
+
+
+
+Claude's response was interrupted
+Actually, looking at the new index file or the last index file that I had in GitHub, it looks like I might have accidentally pasted one of our chats in it, and it's not the actual code. I probably need to go back and pull a different version. How can I do that?
+
+9:19 PM
+
+Diagnosed accidental chat paste, plotted Git recovery strategy
+Diagnosed accidental chat paste, plotted Git recovery strategy
+
+
+No worries — Git has your back. This is exactly the kind of situation version control saves you from. Run this in your terminal:
+
+bash
+# First, see what's actually in the file right now
+head -5 index.html
+
+# If it's clearly wrong (chat text, not code), restore from the last good commit
+git checkout HEAD -- index.html
+The git checkout HEAD -- index.html command tells Git: "give me back the version of this file from the last commit." It throws away whatever's in the file now and restores it.
+
+After running that, do a quick check:
+
+bash
+head -5 index.html
+You should see something like import React, { useState } from 'react'; at the top — not chat text. Let me know what you see!
+
+No, it's definitely messed up. Maybe we should use the Git website to figure this out.
+
+9:20 PM
+
+Investigated commit history to locate corrupted file's last stable version
+Investigated commit history to locate corrupted file's last stable version
+
+
+
+
+Good call. Let's look at it on GitHub where you can visually see the history.
+
+Go to your repo in a browser — it should be at:
+
+https://github.com/kenpresutti/triathlon-workout-generator
+
+Then click on "Commits" (or the commit count near the top). You'll see a list of all your commits with dates. We need to find the last one where index.html had real code in it.
+
+Click on each commit starting from the most recent (2568d7d - the v1.0.2 hotfix) and look at the file contents. You can click on "Browse files" at that commit to see what index.html looked like.
+
+Once you find the good version, let me know which commit it is and we'll restore from there. Or if you can see the code looks right at a specific commit, you can run:
+
+bash
+git checkout <commit-hash> -- index.html
+What do you see when you look at the commits on GitHub?
+
+I think I've found a decent commit that we could use.  here is what's there when I click the copy button: d6971c66f3bb77bf6ca2e59fdb31d97f6f8fc67d
+
+9:22 PM
+
+Identified commit hash for index.html restoration
+Identified commit hash for index.html restoration
+
+Let's restore from that commit. Run this:
+
+bash
+git checkout d6971c66f3bb77bf6ca2e59fdb31d97f6f8fc67d -- index.html
+Then verify it looks right:
+
+bash
+head -20 index.html
+You should see actual React code at the top. Let me know what you see!
+
+It looks like it's only showing me what the changes were when I look at the head 20 index. Is that right?
+
+9:23 PM
+
+Diagnosed potential file display confusion and sought clarification
+Diagnosed potential file display confusion and sought clarification
+
+
+No, head -20 should show the first 20 lines of the actual file. Can you paste what it's showing you? That'll help me figure out what's going on.
+
+Can we find the last version of the artifact that we created together here in Claude?
+
+9:23 PM
+
+Finalized artifact version and prepared user notification
+Finalized artifact version and prepared user notification
+
+
+
+
+
+
+Good news — you actually pasted the full working code in that big document you shared earlier in this chat. That's the v1.0.2 version with Rule #8 (the trailing recovery fix). ​​Let me launch it as an artifact so you can copy it cleanly:
+
+Triathlon Workout Generator v1.0.2
+Interactive artifact 
+There it is — v1.0.2 with Rule #8 (the trailing recovery fix), running as an artifact. You can test it here with your standard workout to confirm it's working.
+
+Now for your Git situation — before you copy this into Cursor, let's first clean up your repo. Run this to hard reset your index.html back to what's on GitHub:
+
+bash
+git checkout main
+git restore index.html
+Then you can paste this artifact code into index.html, save, and commit cleanly. Let me know when you're ready!
+
+Great, that looks all up to date. Now let's work a little bit more on this product before we're ready to make any more changes using Cursor. Can we take our current artifact here and add a dark mode toggle to it at the top right of the existing app?
+
+9:27 PM
+
+Implemented dark mode toggle feature successfully
+Implemented dark mode toggle feature successfully
+
+
+Triathlon Workout Generator v1.0.2
+Interactive artifact ∙ Version 2 
+There you go! Hit the moon icon in the top-right corner to toggle dark mode. Here's what I added:
+
+The toggle uses a Sun/Moon icon button that swaps between modes. All the theming is driven by a t object that switches class names based on the darkMode state, so every element — backgrounds, text, inputs, cards, chart, tooltips, intervals — all transition smoothly together with a 300ms fade.
+
+Try toggling it and let me know how it looks! Anything you'd want adjusted on the colors or contrast?
+
+There was a set of intervals that we had been using to test the app generation. can you find what that was?
+
+9:30 PM
+
+Retrieved previously documented interval workout specifications
+Retrieved previously documented interval workout specifications
+
+
+Yep, here's your baseline test workout:
+
+warm up as 10mins zone 1, 
+4x30sec zone 4 with 30 rest,
+10 mins zone 2
+main set
+3 x 7 min @ Z4 at 70rpm (2 min Z1)
+1 x 5 min @ Z2
+2 x 10 min @ Z3  at 60rpm (2 min Z1)
+30mins zone 2
+That's Test Case 1 from your test plan — the known-good baseline that passes. Go ahead and paste it into the app to test!
+
+Okay, that one is working perfectly. I'm going to go ahead and copy the latest version of the code over into my index file so that the dark mode gets saved. Then I would like to experiment with some other formats people might use to add workout descriptions so that we can make sure, however they're entered, they show up correctly in the structure that we are building.
+
+9:31 PM
+
+Strategizing test cases for diverse workout description formats
+Strategizing test cases for diverse workout description formats
+
+
+Sounds great! Go ahead and copy the artifac
+
+
+
+
+
+Claude is AI and can make mistakes. Please double-check responses.
 import React, { useState } from 'react';
-import { Download, Zap, Activity } from 'lucide-react';
+import { Download, Zap, Activity, Moon, Sun } from 'lucide-react';
 
 export default function WorkoutGenerator() {
   const [ftp, setFtp] = useState(226);
@@ -11,6 +436,7 @@ export default function WorkoutGenerator() {
   const [groupIntervals, setGroupIntervals] = useState(false);
   const [includeLastRecovery, setIncludeLastRecovery] = useState(false);
   const [hoveredSegment, setHoveredSegment] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
 
   const calculateZones = (ftpValue) => {
     return {
@@ -30,10 +456,8 @@ export default function WorkoutGenerator() {
       setError('Please enter a workout description');
       return;
     }
-
     setLoading(true);
     setError(null);
-
     try {
       const prompt = `You are a triathlon workout parser. Given an FTP of ${ftp}W and these power zones:
 - Z1: ${zones.z1.min}-${zones.z1.max}W (Active Recovery)
@@ -74,45 +498,27 @@ Make sure every segment has type, duration (in seconds), power (in watts), zone,
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 2000,
-          messages: [
-            { role: 'user', content: prompt }
-          ]
+          messages: [{ role: 'user', content: prompt }]
         })
       });
-
       if (!response.ok) {
         const errorData = await response.text();
         console.error('API Error:', errorData);
         throw new Error(`API returned ${response.status}: ${errorData}`);
       }
-
       const data = await response.json();
-      console.log('API Response:', data);
-      
       const content = data.content.find(item => item.type === 'text')?.text || '';
-      console.log('Content:', content);
-      
       let cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
-      
       const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        cleanContent = jsonMatch[0];
-      }
-      
-      console.log('Clean content:', cleanContent);
-      
+      if (jsonMatch) cleanContent = jsonMatch[0];
       const workoutData = JSON.parse(cleanContent);
-      
       if (!workoutData.segments || !Array.isArray(workoutData.segments)) {
         throw new Error('Invalid workout format: missing segments array');
       }
-      
       setWorkout(workoutData);
     } catch (err) {
       console.error('Error details:', err);
@@ -126,14 +532,14 @@ Make sure every segment has type, duration (in seconds), power (in watts), zone,
     if (!workout) return;
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <workout_file>
-  <name>${workout.name}</name>
+  <n>${workout.name}</n>
   <description>${workout.description}</description>
   <sportType>bike</sportType>
   <tags></tags>
   <workout>
 ${workout.segments.map((seg) => {
-  const powerPercent = (seg.power / ftp).toFixed(2);
-  return `    <${seg.type} Duration="${seg.duration}" PowerLow="${powerPercent}" PowerHigh="${powerPercent}">
+  const pp = (seg.power / ftp).toFixed(2);
+  return `    <${seg.type} Duration="${seg.duration}" PowerLow="${pp}" PowerHigh="${pp}">
       <textevent timeoffset="0" message="${seg.description}"/>
     </${seg.type}>`;
 }).join('\n')}
@@ -150,22 +556,12 @@ ${workout.segments.map((seg) => {
 
   const exportERG = () => {
     if (!workout) return;
-    let totalSeconds = 0;
-    const ergLines = workout.segments.map(seg => {
-      const start = totalSeconds;
-      totalSeconds += seg.duration;
-      return `${start}\t${seg.power}\n${totalSeconds}\t${seg.power}`;
+    let ts = 0;
+    const lines = workout.segments.map(seg => {
+      const s = ts; ts += seg.duration;
+      return `${s}\t${seg.power}\n${ts}\t${seg.power}`;
     }).join('\n');
-    const erg = `[COURSE HEADER]
-VERSION = 2
-UNITS = ENGLISH
-DESCRIPTION = ${workout.name}
-FILE NAME = ${workout.name}
-MINUTES WATTS
-[END COURSE HEADER]
-[COURSE DATA]
-${ergLines}
-[END COURSE DATA]`;
+    const erg = `[COURSE HEADER]\nVERSION = 2\nUNITS = ENGLISH\nDESCRIPTION = ${workout.name}\nFILE NAME = ${workout.name}\nMINUTES WATTS\n[END COURSE HEADER]\n[COURSE DATA]\n${lines}\n[END COURSE DATA]`;
     const blob = new Blob([erg], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -177,24 +573,15 @@ ${ergLines}
 
   const exportMRC = () => {
     if (!workout) return;
-    let totalMinutes = 0;
-    const mrcLines = workout.segments.map(seg => {
-      const start = totalMinutes;
-      const durationMin = (seg.duration / 60).toFixed(2);
-      totalMinutes = parseFloat((totalMinutes + parseFloat(durationMin)).toFixed(2));
-      const powerPercent = ((seg.power / ftp) * 100).toFixed(0);
-      return `${start.toFixed(2)}\t${powerPercent}\n${totalMinutes.toFixed(2)}\t${powerPercent}`;
+    let tm = 0;
+    const lines = workout.segments.map(seg => {
+      const s = tm;
+      const dm = (seg.duration / 60).toFixed(2);
+      tm = parseFloat((tm + parseFloat(dm)).toFixed(2));
+      const pp = ((seg.power / ftp) * 100).toFixed(0);
+      return `${s.toFixed(2)}\t${pp}\n${tm.toFixed(2)}\t${pp}`;
     }).join('\n');
-    const mrc = `[COURSE HEADER]
-VERSION = 2
-UNITS = ENGLISH
-DESCRIPTION = ${workout.name}
-FILE NAME = ${workout.name}
-MINUTES PERCENT
-[END COURSE HEADER]
-[COURSE DATA]
-${mrcLines}
-[END COURSE DATA]`;
+    const mrc = `[COURSE HEADER]\nVERSION = 2\nUNITS = ENGLISH\nDESCRIPTION = ${workout.name}\nFILE NAME = ${workout.name}\nMINUTES PERCENT\n[END COURSE HEADER]\n[COURSE DATA]\n${lines}\n[END COURSE DATA]`;
     const blob = new Blob([mrc], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -210,25 +597,23 @@ ${mrcLines}
     if (groupIntervals && includeLastRecovery) {
       const grouped = groupIntervalSets(workout.segments);
       grouped.forEach(item => {
-        if (item.isGroup && item.recovery) {
-          total += item.recovery.duration;
-        }
+        if (item.isGroup && item.recovery) total += item.recovery.duration;
       });
     }
     return total;
   };
 
   const formatDuration = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   const formatDurationShort = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const groupIntervalSets = (segments) => {
@@ -236,125 +621,127 @@ ${mrcLines}
     const grouped = [];
     let i = 0;
     while (i < segments.length) {
-      const current = segments[i];
-      if (current.type === 'interval') {
-        const intervals = [current];
-        const intervalIndices = [i];
-        const recoveries = [];
-        const recoveryIndices = [];
+      const cur = segments[i];
+      if (cur.type === 'interval') {
+        const intervals = [cur], iIdx = [i], recs = [], rIdx = [];
         let j = i + 1;
-        let hasRecovery = false;
         if (j < segments.length && segments[j].zone === 'Z1') {
-          recoveries.push(segments[j]);
-          recoveryIndices.push(j);
-          hasRecovery = true;
-          j++;
+          recs.push(segments[j]); rIdx.push(j); j++;
         }
         while (j < segments.length) {
-          const potentialInterval = segments[j];
-          if (potentialInterval.type === 'interval' &&
-              potentialInterval.zone === current.zone &&
-              Math.abs(potentialInterval.duration - current.duration) <= 30) {
-            intervals.push(potentialInterval);
-            intervalIndices.push(j);
-            j++;
-            if (j < segments.length && segments[j].zone === 'Z1' && 
-                segments[j].duration <= current.duration * 2) {
-              recoveries.push(segments[j]);
-              recoveryIndices.push(j);
-              j++;
+          const p = segments[j];
+          if (p.type === 'interval' && p.zone === cur.zone && Math.abs(p.duration - cur.duration) <= 30) {
+            intervals.push(p); iIdx.push(j); j++;
+            if (j < segments.length && segments[j].zone === 'Z1' && segments[j].duration <= cur.duration * 2) {
+              recs.push(segments[j]); rIdx.push(j); j++;
             }
-          } else {
-            break;
-          }
+          } else break;
         }
         if (intervals.length >= 2) {
-          const minPower = Math.min(...intervals.map(int => int.power));
-          const maxPower = Math.max(...intervals.map(int => int.power));
-          const recoveryTemplate = recoveries.length > 0 ? recoveries[0] : null;
-          const avgRecoveryPower = recoveries.length > 0
-            ? Math.round(recoveries.reduce((sum, r) => sum + r.power, 0) / recoveries.length)
-            : 0;
+          const minP = Math.min(...intervals.map(x => x.power));
+          const maxP = Math.max(...intervals.map(x => x.power));
+          const rt = recs.length > 0 ? recs[0] : null;
+          const avgRP = recs.length > 0 ? Math.round(recs.reduce((s, r) => s + r.power, 0) / recs.length) : 0;
           grouped.push({
-            isGroup: true,
-            reps: intervals.length,
-            active: {
-              ...current,
-              powerMin: minPower,
-              powerMax: maxPower,
-              description: current.description.replace(/Interval \d+ of \d+ - /, '')
-            },
-            recovery: recoveryTemplate ? {
-              ...recoveryTemplate,
-              power: avgRecoveryPower
-            } : null,
-            originalIndices: [...intervalIndices, ...recoveryIndices],
-            totalDuration: intervals.reduce((sum, int) => sum + int.duration, 0) + 
-                          recoveries.reduce((sum, rec) => sum + rec.duration, 0)
+            isGroup: true, reps: intervals.length,
+            active: { ...cur, powerMin: minP, powerMax: maxP, description: cur.description.replace(/Interval \d+ of \d+ - /, '') },
+            recovery: rt ? { ...rt, power: avgRP } : null,
+            originalIndices: [...iIdx, ...rIdx],
+            totalDuration: intervals.reduce((s, x) => s + x.duration, 0) + recs.reduce((s, x) => s + x.duration, 0)
           });
-          i = j;
-          continue;
+          i = j; continue;
         }
       }
-      grouped.push({ ...current, isGroup: false, originalIndex: i });
-      i++;
+      grouped.push({ ...cur, isGroup: false, originalIndex: i }); i++;
     }
     return grouped;
   };
 
+  // Theme classes
+  const t = darkMode ? {
+    bg: 'bg-gray-950', card: 'bg-gray-900 border border-gray-800', cardInner: 'bg-gray-800',
+    text: 'text-gray-100', textMuted: 'text-gray-400', textSub: 'text-gray-500',
+    input: 'bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-500',
+    zonesBg: 'bg-gray-800', chartBg: 'bg-gray-800 border-gray-700',
+    chartInner: 'bg-gray-900 border-gray-700',
+    tooltip: 'bg-gray-800 border-indigo-500 text-gray-100',
+    segmentCard: 'bg-gray-800 border-gray-700', segmentRecovery: 'bg-gray-850 border-gray-600',
+    groupBorder: 'border-gray-700', error: 'bg-red-900/40 border-red-700 text-red-300',
+    checkbox: 'text-indigo-400',
+  } : {
+    bg: 'bg-gradient-to-br from-blue-50 to-indigo-100', card: 'bg-white', cardInner: 'bg-white',
+    text: 'text-gray-800', textMuted: 'text-gray-600', textSub: 'text-gray-500',
+    input: 'bg-white border-gray-300 text-gray-800 placeholder-gray-400',
+    zonesBg: 'bg-gray-50', chartBg: 'bg-gray-50', chartInner: 'bg-white border-gray-200',
+    tooltip: 'bg-white border-indigo-400 text-gray-800',
+    segmentCard: 'bg-gray-50', segmentRecovery: 'bg-white border-gray-300',
+    groupBorder: 'border-gray-200', error: 'bg-red-50 border-red-200 text-red-700',
+    checkbox: 'text-indigo-600',
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className={`min-h-screen ${t.bg} p-6 transition-colors duration-300`}>
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-xl p-8 mb-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Zap className="text-indigo-600" size={32} />
-            <h1 className="text-3xl font-bold text-gray-800">Triathlon Workout Generator</h1>
+        <div className={`${t.card} rounded-lg shadow-xl p-8 mb-6 transition-colors duration-300`}>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Zap className="text-indigo-500" size={32} />
+              <h1 className={`text-3xl font-bold ${t.text}`}>Triathlon Workout Generator</h1>
+            </div>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-2 rounded-lg transition-colors ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-yellow-400' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {darkMode ? <Sun size={22} /> : <Moon size={22} />}
+            </button>
           </div>
+
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">FTP (Watts)</label>
-              <input type="number" value={ftp} onChange={(e) => setFtp(parseInt(e.target.value) || 0)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+              <label className={`block text-sm font-medium ${t.textMuted} mb-2`}>FTP (Watts)</label>
+              <input type="number" value={ftp} onChange={(e) => setFtp(parseInt(e.target.value) || 0)} className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${t.input} transition-colors duration-300`} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">FTHR (BPM)</label>
-              <input type="number" value={fthr} onChange={(e) => setFthr(parseInt(e.target.value) || 0)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+              <label className={`block text-sm font-medium ${t.textMuted} mb-2`}>FTHR (BPM)</label>
+              <input type="number" value={fthr} onChange={(e) => setFthr(parseInt(e.target.value) || 0)} className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${t.input} transition-colors duration-300`} />
             </div>
           </div>
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Power Zones</h3>
+
+          <div className={`mb-6 p-4 ${t.zonesBg} rounded-lg transition-colors duration-300`}>
+            <h3 className={`text-sm font-semibold ${t.textMuted} mb-3`}>Your Power Zones</h3>
             <div className="grid grid-cols-3 gap-3">
               {Object.entries(zones).map(([key, zone]) => (
                 <div key={key} className="text-xs">
-                  <span className="font-semibold text-indigo-600">{key.toUpperCase()}:</span>{' '}
-                  {zone.min}-{zone.max}W
-                  <div className="text-gray-500">{zone.name}</div>
+                  <span className="font-semibold text-indigo-500">{key.toUpperCase()}:</span>{' '}
+                  <span className={t.text}>{zone.min}-{zone.max}W</span>
+                  <div className={t.textSub}>{zone.name}</div>
                 </div>
               ))}
             </div>
           </div>
+
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Describe Your Workout</label>
-            <textarea value={workoutDescription} onChange={(e) => setWorkoutDescription(e.target.value)} placeholder="Example: 10 minute warm up with 2 minutes in zone 1, 5min in zone 2, and 3 min in zone 3. Then do 5x3 intervals at zone 4, each interval slightly higher than the next, followed by a 5min cool down." className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-32" />
+            <label className={`block text-sm font-medium ${t.textMuted} mb-2`}>Describe Your Workout</label>
+            <textarea value={workoutDescription} onChange={(e) => setWorkoutDescription(e.target.value)} placeholder="Example: 10 minute warm up with 2 minutes in zone 1, 5min in zone 2, and 3 min in zone 3. Then do 5x3 intervals at zone 4, each interval slightly higher than the next, followed by a 5min cool down." className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-32 ${t.input} transition-colors duration-300`} />
           </div>
+
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+            <div className={`mb-4 p-3 border rounded-lg ${t.error} transition-colors duration-300`}>{error}</div>
           )}
+
           <button onClick={generateWorkout} disabled={loading} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
-            {loading ? (
-              <><Activity className="animate-spin" size={20} />Generating Workout...</>
-            ) : (
-              <><Zap size={20} />Generate Workout</>
-            )}
+            {loading ? (<><Activity className="animate-spin" size={20} />Generating Workout...</>) : (<><Zap size={20} />Generate Workout</>)}
           </button>
         </div>
 
         {workout && (
-          <div className="bg-white rounded-lg shadow-xl p-8">
+          <div className={`${t.card} rounded-lg shadow-xl p-8 transition-colors duration-300`}>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-800">{workout.name}</h2>
-                <p className="text-gray-600">{workout.description}</p>
-                <p className="text-sm text-gray-500 mt-1">Total Duration: {formatDuration(getTotalDuration())}</p>
+                <h2 className={`text-2xl font-bold ${t.text}`}>{workout.name}</h2>
+                <p className={t.textMuted}>{workout.description}</p>
+                <p className={`text-sm ${t.textSub} mt-1`}>Total Duration: {formatDuration(getTotalDuration())}</p>
               </div>
               <div className="flex gap-2">
                 <button onClick={exportZWO} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Download size={18} />.ZWO</button>
@@ -363,13 +750,13 @@ ${mrcLines}
               </div>
             </div>
 
-            <div className="mb-8 p-6 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Workout Structure</h3>
+            <div className={`mb-8 p-6 ${t.chartBg} rounded-lg transition-colors duration-300`}>
+              <h3 className={`text-lg font-semibold ${t.textMuted} mb-4`}>Workout Structure</h3>
               <div className="relative">
                 {hoveredSegment && (
-                  <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-white border-2 border-indigo-400 rounded-lg shadow-lg">
-                    <div className="font-bold text-gray-800 mb-1">{hoveredSegment.description}</div>
-                    <div className="text-sm text-gray-600">
+                  <div className={`absolute top-0 left-0 right-0 z-20 p-4 border-2 rounded-lg shadow-lg ${t.tooltip} transition-colors duration-300`}>
+                    <div className={`font-bold ${t.text} mb-1`}>{hoveredSegment.description}</div>
+                    <div className={`text-sm ${t.textMuted}`}>
                       <span className="font-semibold">Duration:</span> {formatDurationShort(hoveredSegment.duration)} • 
                       <span className="font-semibold ml-2">Power:</span> {hoveredSegment.power}W • 
                       <span className="font-semibold ml-2">Zone:</span> {hoveredSegment.zone} • 
@@ -378,147 +765,126 @@ ${mrcLines}
                   </div>
                 )}
                 <div className="h-20 mb-2"></div>
-                <div className="relative h-48 bg-white rounded border border-gray-200 overflow-hidden">
-                  <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs text-gray-500 py-2">
+                <div className={`relative h-48 rounded border overflow-hidden ${t.chartInner} transition-colors duration-300`}>
+                  <div className={`absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs ${t.textSub} py-2`}>
                     <div>Z6</div><div>Z5</div><div>Z4</div><div>Z3</div><div>Z2</div><div>Z1</div>
                   </div>
                   <div className="absolute left-12 right-0 top-0 bottom-0 flex items-end">
                   {(() => {
-                    const chartSegments = [];
+                    const cs = [];
                     if (groupIntervals && includeLastRecovery) {
-                      const grouped = groupIntervalSets(workout.segments);
-                      let segmentIdx = 0;
-                      grouped.forEach(item => {
+                      const grp = groupIntervalSets(workout.segments);
+                      let si = 0;
+                      grp.forEach(item => {
                         if (item.isGroup) {
-                          const numSegmentsInGroup = item.originalIndices.length;
-                          for (let i = 0; i < numSegmentsInGroup; i++) {
-                            chartSegments.push(workout.segments[segmentIdx]);
-                            segmentIdx++;
-                          }
-                          if (item.recovery) {
-                            chartSegments.push({
-                              ...item.recovery,
-                              description: 'Final recovery after interval set'
-                            });
-                          }
-                        } else {
-                          chartSegments.push(workout.segments[segmentIdx]);
-                          segmentIdx++;
-                        }
+                          const n = item.originalIndices.length;
+                          for (let x = 0; x < n; x++) { cs.push(workout.segments[si]); si++; }
+                          if (item.recovery) cs.push({ ...item.recovery, description: 'Final recovery after interval set' });
+                        } else { cs.push(workout.segments[si]); si++; }
                       });
-                      return chartSegments;
-                    } else {
-                      return workout.segments;
-                    }
-                  })().map((segment, idx) => {
-                    const totalDuration = getTotalDuration();
-                    const widthPercent = (segment.duration / totalDuration) * 100;
-                    const zoneNum = parseInt(segment.zone.replace('Z', ''));
-                    const heightPercent = (zoneNum / 6) * 100;
-                    const colors = {
-                      1: 'bg-cyan-200', 2: 'bg-cyan-400', 3: 'bg-blue-500',
-                      4: 'bg-purple-600', 5: 'bg-pink-500', 6: 'bg-red-600'
-                    };
+                      return cs;
+                    } else return workout.segments;
+                  })().map((seg, idx) => {
+                    const td = getTotalDuration();
+                    const wp = (seg.duration / td) * 100;
+                    const zn = parseInt(seg.zone.replace('Z', ''));
+                    const hp = (zn / 6) * 100;
+                    const colors = { 1: 'bg-cyan-200', 2: 'bg-cyan-400', 3: 'bg-blue-500', 4: 'bg-purple-600', 5: 'bg-pink-500', 6: 'bg-red-600' };
                     return (
-                      <div key={idx} className={`${colors[zoneNum]} border-r border-gray-300 transition-all cursor-pointer ${hoveredSegment === segment ? 'opacity-100 ring-2 ring-inset ring-indigo-500' : 'opacity-90 hover:opacity-100'}`}
-                        style={{ width: `${widthPercent}%`, height: `${heightPercent}%` }}
-                        onMouseEnter={() => setHoveredSegment(segment)}
+                      <div key={idx} className={`${colors[zn]} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'} transition-all cursor-pointer ${hoveredSegment === seg ? 'opacity-100 ring-2 ring-inset ring-indigo-500' : 'opacity-90 hover:opacity-100'}`}
+                        style={{ width: `${wp}%`, height: `${hp}%` }}
+                        onMouseEnter={() => setHoveredSegment(seg)}
                         onMouseLeave={() => setHoveredSegment(null)}
                       />
                     );
                   })}
                   </div>
                 </div>
-                <div className="mt-2 ml-12 flex justify-between text-xs text-gray-500">
-                  <span>0:00</span>
-                  <span>{formatDuration(getTotalDuration())}</span>
+                <div className={`mt-2 ml-12 flex justify-between text-xs ${t.textSub}`}>
+                  <span>0:00</span><span>{formatDuration(getTotalDuration())}</span>
                 </div>
               </div>
             </div>
 
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-4">
-                <h3 className="text-lg font-semibold text-gray-700">Intervals</h3>
+                <h3 className={`text-lg font-semibold ${t.textMuted}`}>Intervals</h3>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={groupIntervals} onChange={(e) => setGroupIntervals(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
-                  <span className="text-sm text-gray-600">Group interval sets</span>
+                  <input type="checkbox" checked={groupIntervals} onChange={(e) => setGroupIntervals(e.target.checked)} className={`w-4 h-4 ${t.checkbox} rounded focus:ring-indigo-500`} />
+                  <span className={`text-sm ${t.textMuted}`}>Group interval sets</span>
                 </label>
                 {groupIntervals && (
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={includeLastRecovery} onChange={(e) => setIncludeLastRecovery(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
-                    <span className="text-sm text-gray-600">Include recovery after last interval</span>
+                    <input type="checkbox" checked={includeLastRecovery} onChange={(e) => setIncludeLastRecovery(e.target.checked)} className={`w-4 h-4 ${t.checkbox} rounded focus:ring-indigo-500`} />
+                    <span className={`text-sm ${t.textMuted}`}>Include recovery after last interval</span>
                   </label>
                 )}
               </div>
               <div className="space-y-3">
                 {groupIntervalSets(workout.segments).map((item, idx) => {
                   if (item.isGroup) {
-                    const powerRange = item.active.powerMin === item.active.powerMax 
-                      ? `${item.active.powerMin}W` : `${item.active.powerMin} - ${item.active.powerMax} W`;
-                    const percentRange = item.active.powerMin === item.active.powerMax
+                    const pr = item.active.powerMin === item.active.powerMax ? `${item.active.powerMin}W` : `${item.active.powerMin} - ${item.active.powerMax} W`;
+                    const pct = item.active.powerMin === item.active.powerMax
                       ? `${((item.active.powerMin / ftp) * 100).toFixed(0)}% CP`
                       : `${((item.active.powerMin / ftp) * 100).toFixed(0)} - ${((item.active.powerMax / ftp) * 100).toFixed(0)}% CP`;
                     return (
-                      <div key={idx} className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                      <div key={idx} className={`${t.segmentCard} rounded-lg border ${t.groupBorder} overflow-hidden transition-colors duration-300`}>
                         <div className="flex items-center gap-4 p-4 border-l-4 border-indigo-500">
                           <div className="flex-shrink-0 w-20 text-center">
-                            <div className="text-2xl font-bold text-indigo-600">{formatDurationShort(item.active.duration)}</div>
-                            <div className="text-xs text-gray-500">Active</div>
+                            <div className="text-2xl font-bold text-indigo-500">{formatDurationShort(item.active.duration)}</div>
+                            <div className={`text-xs ${t.textSub}`}>Active</div>
                           </div>
                           <div className="flex-grow">
-                            <div className="font-semibold text-gray-800">{item.active.description}</div>
-                            <div className="text-sm text-gray-600">{powerRange} • {item.active.zone} • {percentRange}</div>
+                            <div className={`font-semibold ${t.text}`}>{item.active.description}</div>
+                            <div className={`text-sm ${t.textMuted}`}>{pr} • {item.active.zone} • {pct}</div>
                           </div>
                           <div className="flex-shrink-0">
                             <div className="px-3 py-1 bg-yellow-400 text-gray-800 rounded-full text-sm font-bold">{item.reps}x</div>
                           </div>
                         </div>
                         {item.recovery && (
-                          <div className="flex items-center gap-4 p-4 pl-8 bg-white border-l-4 border-gray-300 ml-4">
+                          <div className={`flex items-center gap-4 p-4 pl-8 ${t.cardInner} border-l-4 ${darkMode ? 'border-gray-600' : 'border-gray-300'} ml-4 transition-colors duration-300`}>
                             <div className="flex-shrink-0 w-20 text-center">
-                              <div className="text-xl font-bold text-gray-600">{formatDurationShort(item.recovery.duration)}</div>
-                              <div className="text-xs text-gray-500">Intra-Recovery</div>
+                              <div className={`text-xl font-bold ${t.textMuted}`}>{formatDurationShort(item.recovery.duration)}</div>
+                              <div className={`text-xs ${t.textSub}`}>Intra-Recovery</div>
                             </div>
                             <div className="flex-grow">
-                              <div className="font-semibold text-gray-700">{item.recovery.description}</div>
-                              <div className="text-sm text-gray-600">{item.recovery.power}W • {item.recovery.zone} • {((item.recovery.power / ftp) * 100).toFixed(0)}% CP</div>
+                              <div className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{item.recovery.description}</div>
+                              <div className={`text-sm ${t.textMuted}`}>{item.recovery.power}W • {item.recovery.zone} • {((item.recovery.power / ftp) * 100).toFixed(0)}% CP</div>
                             </div>
                           </div>
                         )}
                         {includeLastRecovery && item.recovery && (
-                          <div className="flex items-center gap-4 p-4 bg-gray-50 border-l-4 border-gray-400">
+                          <div className={`flex items-center gap-4 p-4 ${t.segmentCard} border-l-4 ${darkMode ? 'border-gray-500' : 'border-gray-400'} transition-colors duration-300`}>
                             <div className="flex-shrink-0 w-20 text-center">
-                              <div className="text-xl font-bold text-gray-600">{formatDurationShort(item.recovery.duration)}</div>
-                              <div className="text-xs text-gray-500">Final Recovery</div>
+                              <div className={`text-xl font-bold ${t.textMuted}`}>{formatDurationShort(item.recovery.duration)}</div>
+                              <div className={`text-xs ${t.textSub}`}>Final Recovery</div>
                             </div>
                             <div className="flex-grow">
-                              <div className="font-semibold text-gray-700">Recovery after last interval</div>
-                              <div className="text-sm text-gray-600">{item.recovery.power}W • {item.recovery.zone} • {((item.recovery.power / ftp) * 100).toFixed(0)}% CP</div>
+                              <div className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Recovery after last interval</div>
+                              <div className={`text-sm ${t.textMuted}`}>{item.recovery.power}W • {item.recovery.zone} • {((item.recovery.power / ftp) * 100).toFixed(0)}% CP</div>
                             </div>
                           </div>
                         )}
                       </div>
                     );
                   } else {
-                    const segment = item;
-                    const segmentType = segment.type === 'cooldown' ? 'Cool Down' : segment.type === 'warmup' ? 'Warm Up' : segment.type;
-                    const zoneNum = parseInt(segment.zone.replace('Z', ''));
-                    const zonePillColors = {
-                      1: 'bg-cyan-200 text-cyan-800', 2: 'bg-cyan-400 text-white', 3: 'bg-blue-500 text-white',
-                      4: 'bg-purple-600 text-white', 5: 'bg-pink-500 text-white', 6: 'bg-red-600 text-white'
-                    };
+                    const seg = item;
+                    const st = seg.type === 'cooldown' ? 'Cool Down' : seg.type === 'warmup' ? 'Warm Up' : seg.type;
+                    const zn = parseInt(seg.zone.replace('Z', ''));
+                    const zpc = { 1: 'bg-cyan-200 text-cyan-800', 2: 'bg-cyan-400 text-white', 3: 'bg-blue-500 text-white', 4: 'bg-purple-600 text-white', 5: 'bg-pink-500 text-white', 6: 'bg-red-600 text-white' };
                     return (
-                      <div key={idx} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border-l-4 border-indigo-500">
+                      <div key={idx} className={`flex items-center gap-4 p-4 ${t.segmentCard} rounded-lg border-l-4 border-indigo-500 transition-colors duration-300`}>
                         <div className="flex-shrink-0 w-20 text-center">
-                          <div className="text-2xl font-bold text-indigo-600">{formatDurationShort(segment.duration)}</div>
-                          <div className="text-xs text-gray-500 capitalize">{segmentType}</div>
+                          <div className="text-2xl font-bold text-indigo-500">{formatDurationShort(seg.duration)}</div>
+                          <div className={`text-xs ${t.textSub} capitalize`}>{st}</div>
                         </div>
                         <div className="flex-grow">
-                          <div className="font-semibold text-gray-800">{segment.description}</div>
-                          <div className="text-sm text-gray-600">{segment.power}W • {segment.zone} • {((segment.power / ftp) * 100).toFixed(0)}% CP</div>
+                          <div className={`font-semibold ${t.text}`}>{seg.description}</div>
+                          <div className={`text-sm ${t.textMuted}`}>{seg.power}W • {seg.zone} • {((seg.power / ftp) * 100).toFixed(0)}% CP</div>
                         </div>
                         <div className="flex-shrink-0">
-                          <div className={`px-3 py-1 ${zonePillColors[zoneNum]} rounded-full text-sm font-medium`}>{segment.zone}</div>
+                          <div className={`px-3 py-1 ${zpc[zn]} rounded-full text-sm font-medium`}>{seg.zone}</div>
                         </div>
                       </div>
                     );
@@ -532,3 +898,4 @@ ${mrcLines}
     </div>
   );
 }
+Claude

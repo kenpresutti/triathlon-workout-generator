@@ -55,6 +55,9 @@ IMPORTANT RULES:
 8. CRITICAL: Recovery periods go BETWEEN intervals only, NEVER after the last interval in a set. For "3 x 7 min @ Z4 (2 min)", create: Z4 interval, Z1 recovery, Z4 interval, Z1 recovery, Z4 interval, STOP. Do not add recovery after the final interval.
 9. When a segment is described as "easy", "aerobic", or "warm up"/"cool down" without a specific zone, default to Z2 (Endurance) unless explicitly specified as Z1.
 10. When intensity is specified as a percentage of CP/FTP (e.g., "90% cp", "85% FTP", "90 to 95% cp"), calculate the corresponding wattage from the FTP value. For ranges like "90 to 95%", use the midpoint for the power value and note the range in the description.
+11. The "+" symbol between segments means BACK-TO-BACK with NO recovery between them. For example "5x (2 min Threshold + 30 sec VO2 max)" means each rep is 2 min Z4 immediately followed by 30 sec Z5, with NO Z1 recovery inserted between the Z4 and Z5 portions. Only add recovery where the description explicitly says "rest", "recovery", or "with X rest".
+12. Zone names map to zone numbers: "Active Recovery" = Z1, "Endurance" = Z2, "Tempo" = Z3, "Threshold" = Z4, "VO2 Max" or "VO2max" = Z5, "Anaerobic" = Z6. Accept both zone numbers (Z4) and zone names (Threshold) interchangeably.
+13. Recovery listed AFTER a complete set definition (separated by comma or "then") is a SINGLE recovery block after the entire set, NOT after each rep. For example: "5x (2 min Threshold + 30 sec VO2 max), 10 min recovery" means do all 5 reps back-to-back, THEN one 10 min recovery. Recovery BETWEEN reps uses "with X rest" syntax.
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks, no explanation):
 {
@@ -79,7 +82,7 @@ Make sure every segment has type, duration (in seconds), power (in watts), zone,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 2000,
+          max_tokens: 4096,
           messages: [{ role: 'user', content: prompt }]
         })
       });
@@ -204,35 +207,88 @@ ${workout.segments.map((seg) => {
     while (i < segments.length) {
       const cur = segments[i];
       if (cur.type === 'interval') {
-        const intervals = [cur], iIdx = [i], recs = [], rIdx = [];
-        let j = i + 1;
-        if (j < segments.length && segments[j].zone === 'Z1') {
-          recs.push(segments[j]); rIdx.push(j); j++;
-        }
-        while (j < segments.length) {
-          const p = segments[j];
-          if (p.type === 'interval' && p.zone === cur.zone && Math.abs(p.duration - cur.duration) <= 30) {
-            intervals.push(p); iIdx.push(j); j++;
-            if (j < segments.length && segments[j].zone === 'Z1' && segments[j].duration <= cur.duration * 2) {
-              recs.push(segments[j]); rIdx.push(j); j++;
+        // Try to detect a repeating multi-zone pattern (compound intervals)
+        // Look ahead to find pattern length (1, 2, or 3 segments per rep)
+        let bestPattern = null;
+
+        for (let patLen = 1; patLen <= 3; patLen++) {
+          // Check if we have enough segments for at least 2 reps of this pattern
+          if (i + patLen * 2 > segments.length) continue;
+
+          // Extract the candidate pattern
+          const pattern = segments.slice(i, i + patLen);
+          // All segments in pattern must be intervals (not warmup/cooldown/recovery between sets)
+          if (!pattern.every(s => s.type === 'interval')) continue;
+
+          // Count how many times this pattern repeats
+          let reps = 1;
+          let j = i + patLen;
+          while (j + patLen <= segments.length) {
+            const next = segments.slice(j, j + patLen);
+            // Check if next chunk matches the pattern (same zones, similar durations)
+            let match = true;
+            for (let k = 0; k < patLen; k++) {
+              if (next[k].type !== 'interval' || next[k].zone !== pattern[k].zone || Math.abs(next[k].duration - pattern[k].duration) > 30) {
+                match = false; break;
+              }
             }
-          } else break;
+            if (match) { reps++; j += patLen; }
+            else break;
+          }
+
+          if (reps >= 2 && (!bestPattern || patLen > bestPattern.patLen)) {
+            bestPattern = { patLen, reps, endIdx: j };
+          }
         }
-        if (intervals.length >= 2) {
-          const minP = Math.min(...intervals.map(x => x.power));
-          const maxP = Math.max(...intervals.map(x => x.power));
-          const rt = recs.length > 0 ? recs[0] : null;
-          const avgRP = recs.length > 0 ? Math.round(recs.reduce((s, r) => s + r.power, 0) / recs.length) : 0;
-          // Get cadence from first interval (they should all be the same in a group)
-          const groupCadence = cur.cadence || null;
-          grouped.push({
-            isGroup: true, reps: intervals.length,
-            active: { ...cur, powerMin: minP, powerMax: maxP, cadence: groupCadence, description: cur.description.replace(/Interval \d+ of \d+ - /, '') },
-            recovery: rt ? { ...rt, power: avgRP } : null,
-            originalIndices: [...iIdx, ...rIdx],
-            totalDuration: intervals.reduce((s, x) => s + x.duration, 0) + recs.reduce((s, x) => s + x.duration, 0)
-          });
-          i = j; continue;
+
+        if (bestPattern) {
+          const { patLen, reps, endIdx } = bestPattern;
+          const patternSegments = segments.slice(i, i + patLen);
+          const allIndices = [];
+          for (let x = i; x < endIdx; x++) allIndices.push(x);
+
+          if (patLen === 1) {
+            // Simple single-zone group (original behavior)
+            const intervals = [];
+            for (let x = i; x < endIdx; x++) intervals.push(segments[x]);
+            const minP = Math.min(...intervals.map(x => x.power));
+            const maxP = Math.max(...intervals.map(x => x.power));
+            const groupCadence = cur.cadence || null;
+            grouped.push({
+              isGroup: true, isCompound: false, reps,
+              active: { ...cur, powerMin: minP, powerMax: maxP, cadence: groupCadence, description: cur.description.replace(/Interval \d+ of \d+ - /, '').replace(/Set \d+ - /, '').replace(/Rep \d+ - /, '') },
+              recovery: null,
+              originalIndices: allIndices,
+              totalDuration: intervals.reduce((s, x) => s + x.duration, 0)
+            });
+          } else {
+            // Compound multi-zone group (e.g., Z4+Z5 repeated)
+            const compoundParts = patternSegments.map(seg => {
+              // Collect all instances of this position across reps
+              const instances = [];
+              for (let r = 0; r < reps; r++) {
+                const idx = i + r * patLen + patternSegments.indexOf(seg);
+                instances.push(segments[idx]);
+              }
+              const minP = Math.min(...instances.map(x => x.power));
+              const maxP = Math.max(...instances.map(x => x.power));
+              return {
+                zone: seg.zone, duration: seg.duration,
+                powerMin: minP, powerMax: maxP,
+                cadence: seg.cadence || null,
+                description: seg.description.replace(/Interval \d+ of \d+ - /, '').replace(/Set \d+ - /, '').replace(/Rep \d+ - /, '')
+              };
+            });
+
+            grouped.push({
+              isGroup: true, isCompound: true, reps,
+              compoundParts,
+              recovery: null,
+              originalIndices: allIndices,
+              totalDuration: allIndices.reduce((s, idx) => s + segments[idx].duration, 0)
+            });
+          }
+          i = endIdx; continue;
         }
       }
       grouped.push({ ...cur, isGroup: false, originalIndex: i }); i++;
@@ -268,6 +324,11 @@ ${workout.segments.map((seg) => {
         {cadence} rpm
       </span>
     );
+  };
+
+  const zonePillColors = {
+    1: 'bg-cyan-200 text-cyan-800', 2: 'bg-cyan-400 text-white', 3: 'bg-blue-500 text-white',
+    4: 'bg-purple-600 text-white', 5: 'bg-pink-500 text-white', 6: 'bg-red-600 text-white'
   };
 
   return (
@@ -410,7 +471,72 @@ ${workout.segments.map((seg) => {
               </div>
               <div className="space-y-3">
                 {groupIntervalSets(workout.segments).map((item, idx) => {
+                  if (item.isGroup && item.isCompound) {
+                    // Compound group display (e.g., 5x [Z4 + Z5])
+                    return (
+                      <div key={idx} className={`${t.segmentCard} rounded-lg border ${t.groupBorder} overflow-hidden transition-colors duration-300`}>
+                        <div className="flex items-center gap-4 p-4 border-l-4 border-indigo-500">
+                          <div className="flex-shrink-0 w-20 text-center">
+                            <div className="text-xl font-bold text-indigo-500">
+                              {formatDurationShort(item.compoundParts.reduce((s, p) => s + p.duration, 0))}
+                            </div>
+                            <div className={`text-xs ${t.textSub}`}>Per Rep</div>
+                          </div>
+                          <div className="flex-grow">
+                            <div className={`font-semibold ${t.text}`}>
+                              Compound Set: {item.compoundParts.map(p => `${formatDurationShort(p.duration)} ${p.zone}`).join(' + ')}
+                            </div>
+                            <div className={`text-sm ${t.textMuted}`}>
+                              Total: {formatDurationShort(item.totalDuration)} ({item.reps} reps × {item.compoundParts.length} segments)
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <div className="px-3 py-1 bg-yellow-400 text-gray-800 rounded-full text-sm font-bold">{item.reps}x</div>
+                          </div>
+                        </div>
+                        {/* Show each part of the compound pattern */}
+                        {item.compoundParts.map((part, pIdx) => {
+                          const zn = parseInt(part.zone.replace('Z', ''));
+                          const pr = part.powerMin === part.powerMax ? `${part.powerMin}W` : `${part.powerMin}-${part.powerMax}W`;
+                          const pct = part.powerMin === part.powerMax
+                            ? `${((part.powerMin / ftp) * 100).toFixed(0)}% CP`
+                            : `${((part.powerMin / ftp) * 100).toFixed(0)}-${((part.powerMax / ftp) * 100).toFixed(0)}% CP`;
+                          return (
+                            <div key={pIdx} className={`flex items-center gap-4 p-3 pl-8 ${t.cardInner} border-l-4 ml-4 transition-colors duration-300`} style={{ borderLeftColor: zn >= 5 ? '#ec4899' : zn >= 4 ? '#9333ea' : '#3b82f6' }}>
+                              <div className="flex-shrink-0 w-20 text-center">
+                                <div className={`text-lg font-bold ${t.textMuted}`}>{formatDurationShort(part.duration)}</div>
+                              </div>
+                              <div className="flex-grow">
+                                <div className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {part.description}
+                                  {cadenceBadge(part.cadence)}
+                                </div>
+                                <div className={`text-sm ${t.textMuted}`}>{pr} • {part.zone} • {pct}</div>
+                              </div>
+                              <div className="flex-shrink-0">
+                                <div className={`px-3 py-1 ${zonePillColors[zn]} rounded-full text-sm font-medium`}>{part.zone}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {includeLastRecovery && item.recovery && (
+                          <div className={`flex items-center gap-4 p-4 ${t.segmentCard} border-l-4 ${darkMode ? 'border-gray-500' : 'border-gray-400'} transition-colors duration-300`}>
+                            <div className="flex-shrink-0 w-20 text-center">
+                              <div className={`text-xl font-bold ${t.textMuted}`}>{formatDurationShort(item.recovery.duration)}</div>
+                              <div className={`text-xs ${t.textSub}`}>Final Recovery</div>
+                            </div>
+                            <div className="flex-grow">
+                              <div className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Recovery after last interval</div>
+                              <div className={`text-sm ${t.textMuted}`}>{item.recovery.power}W • {item.recovery.zone} • {((item.recovery.power / ftp) * 100).toFixed(0)}% CP</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  
                   if (item.isGroup) {
+                    // Simple single-zone group (original display)
                     const pr = item.active.powerMin === item.active.powerMax ? `${item.active.powerMin}W` : `${item.active.powerMin} - ${item.active.powerMax} W`;
                     const pct = item.active.powerMin === item.active.powerMax
                       ? `${((item.active.powerMin / ftp) * 100).toFixed(0)}% CP`
@@ -459,30 +585,30 @@ ${workout.segments.map((seg) => {
                         )}
                       </div>
                     );
-                  } else {
-                    const seg = item;
-                    const st = seg.type === 'cooldown' ? 'Cool Down' : seg.type === 'warmup' ? 'Warm Up' : seg.type;
-                    const zn = parseInt(seg.zone.replace('Z', ''));
-                    const zpc = { 1: 'bg-cyan-200 text-cyan-800', 2: 'bg-cyan-400 text-white', 3: 'bg-blue-500 text-white', 4: 'bg-purple-600 text-white', 5: 'bg-pink-500 text-white', 6: 'bg-red-600 text-white' };
-                    return (
-                      <div key={idx} className={`flex items-center gap-4 p-4 ${t.segmentCard} rounded-lg border-l-4 border-indigo-500 transition-colors duration-300`}>
-                        <div className="flex-shrink-0 w-20 text-center">
-                          <div className="text-2xl font-bold text-indigo-500">{formatDurationShort(seg.duration)}</div>
-                          <div className={`text-xs ${t.textSub} capitalize`}>{st}</div>
-                        </div>
-                        <div className="flex-grow">
-                          <div className={`font-semibold ${t.text}`}>
-                            {seg.description}
-                            {cadenceBadge(seg.cadence)}
-                          </div>
-                          <div className={`text-sm ${t.textMuted}`}>{seg.power}W • {seg.zone} • {((seg.power / ftp) * 100).toFixed(0)}% CP</div>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <div className={`px-3 py-1 ${zpc[zn]} rounded-full text-sm font-medium`}>{seg.zone}</div>
-                        </div>
-                      </div>
-                    );
                   }
+                  
+                  // Individual segment
+                  const seg = item;
+                  const st = seg.type === 'cooldown' ? 'Cool Down' : seg.type === 'warmup' ? 'Warm Up' : seg.type;
+                  const zn = parseInt(seg.zone.replace('Z', ''));
+                  return (
+                    <div key={idx} className={`flex items-center gap-4 p-4 ${t.segmentCard} rounded-lg border-l-4 border-indigo-500 transition-colors duration-300`}>
+                      <div className="flex-shrink-0 w-20 text-center">
+                        <div className="text-2xl font-bold text-indigo-500">{formatDurationShort(seg.duration)}</div>
+                        <div className={`text-xs ${t.textSub} capitalize`}>{st}</div>
+                      </div>
+                      <div className="flex-grow">
+                        <div className={`font-semibold ${t.text}`}>
+                          {seg.description}
+                          {cadenceBadge(seg.cadence)}
+                        </div>
+                        <div className={`text-sm ${t.textMuted}`}>{seg.power}W • {seg.zone} • {((seg.power / ftp) * 100).toFixed(0)}% CP</div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <div className={`px-3 py-1 ${zonePillColors[zn]} rounded-full text-sm font-medium`}>{seg.zone}</div>
+                      </div>
+                    </div>
+                  );
                 })}
               </div>
             </div>
